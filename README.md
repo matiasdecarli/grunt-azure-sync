@@ -1,6 +1,6 @@
 # grunt-azure-sync
 
-> The best Grunt plugin ever.
+A grunt task to upload files to Azure. Based on grunt-s3-sync
 
 ## Getting Started
 This plugin requires Grunt `~0.4.5`
