@@ -14,15 +14,17 @@ var rimraf = require('rimraf')
     , path = require('path')
     , zlib = require('zlib')
     , url = require('url')
+    , crypto = require('crypto')
     , fs = require('fs')
 
 module.exports = function(grunt) {
-  grunt.registerMultiTask('azure-sync', 'A streaming interface for uploading multiple files to Azure.', function() {
+  grunt.registerMultiTask('azure-sync', 'A streaming interface for upcd loading multiple files to Azure.', function() {
 	var options = this.options()
       , tmp = path.resolve('.tmp')
       , done = this.async()
       , azure = require('azure')
       , blobService = azure.createBlobService()     
+      , self = this;
 
     options.headers = options.headers || {}
     if (options.gzip) {
@@ -39,7 +41,6 @@ module.exports = function(grunt) {
 
     // Handle the upload for each files
     var uploadFile = function(src, orig, dest) { 
-      grunt.log.success('>> [uploaded] ' + dest) 
       blobService.createBlockBlobFromFile(options.container, dest.slice(1,dest.length)
         , src
         , function(error){
@@ -49,54 +50,84 @@ module.exports = function(grunt) {
         });    
     }
 
-    // Upload each file
-    this.files.forEach(function(file) {  
-      var list = file.src.filter(function(file) {
-        return actualFiles.indexOf(file) !== -1
-      })
+    blobService.listBlobs(options.container, function(error, blobs){
+        if(!error){          
+          // Upload each file          
+          var hashs = [];
+          blobs.forEach(function(item){
+              hashs[item.properties['content-md5']] = item.name;
+          });          
 
-      var itemsRem = list.length;
+          self.files.forEach(function(file) {  
+            var list = file.src.filter(function(file) {
+              return actualFiles.indexOf(file) !== -1
+            })
 
-      async.mapLimit(list, 25, function(src, next) {        
-        var absolute = path.resolve(src)
-        var dest = url.resolve(file.dest, path.relative(file.root, src))
-        var useGzip = 'gzip' in file ? !!file.gzip : !!options.gzip
-        var gzipCompLevel = 'compressionLevel' in file
-          ? file.compressionLevel
-          : options.compressionLevel
+            var itemsRem = list.length;
 
-        if (!useGzip) {
-          uploadFile(absolute, absolute, dest)
-          return next()
+            async.mapLimit(list, 25, function(src, next) {        
+              var absolute = path.resolve(src)
+              var dest = url.resolve(file.dest, path.relative(file.root, src))
+              var useGzip = 'gzip' in file ? !!file.gzip : !!options.gzip
+              var gzipCompLevel = 'compressionLevel' in file
+                ? file.compressionLevel
+                : options.compressionLevel
+
+              if (!useGzip) {                
+                fs.readFile(absolute, function (err, data) {
+                  if (err) throw err;                  
+                  var hash = crypto.createHash('md5').update(data);
+                  if(hashs[hash.digest('base64')] === undefined){
+                      grunt.log.success('>> [uploaded] ' + dest) 
+                      uploadFile(absolute, absolute, dest);
+                  }
+                  else{
+                      grunt.log.ok('[exists] ' + dest)
+                  }                  
+                });
+                return next()
+              }
+
+              // GZip the file
+              var outputSrc = path.resolve(tmp, src)
+
+              grunt.file.mkdir(path.dirname(outputSrc))
+
+              if(typeof gzipCompLevel === 'undefined') {
+                gzipCompLevel = 9
+              }
+
+              var gzip = zlib.createGzip({ level: gzipCompLevel })
+                , input = fs.createReadStream(absolute)
+                , output = fs.createWriteStream(outputSrc)
+
+              input
+                .pipe(gzip)
+                .pipe(output)
+                .once('close', function() {
+                  fs.readFile(outputSrc, function (err, data) {
+                    if (err) throw err;                  
+
+                    var hash = crypto.createHash('md5').update(data);                    
+                    if(hashs[hash.digest('base64')] === undefined){
+                        grunt.log.success('>> [uploaded] ' + dest)                         
+                        uploadFile(outputSrc, absolute, dest)
+                    }
+                    else{
+                        grunt.log.ok('[exists] ' + dest)
+                    }       
+                    if (itemsRem--==1){
+                      done()
+                    }
+                    next()             
+                  });                                            
+                }) 
+            }, function(err) {                
+              if (err) throw err      
+              rimraf(tmp, function(){});  
+            })
+          })
         }
-
-        // GZip the file
-        var outputSrc = path.resolve(tmp, src)
-
-        grunt.file.mkdir(path.dirname(outputSrc))
-
-        if(typeof gzipCompLevel === 'undefined') {
-          gzipCompLevel = 9
-        }
-
-        var gzip = zlib.createGzip({ level: gzipCompLevel })
-          , input = fs.createReadStream(absolute)
-          , output = fs.createWriteStream(outputSrc)
-
-        input
-          .pipe(gzip)
-          .pipe(output)
-          .once('close', function() {
-            uploadFile(outputSrc, absolute, dest)
-            if (itemsRem--==1){
-              done()
-            }
-            next()          
-          }) 
-      }, function(err) {                
-        if (err) throw err      
-        rimraf(tmp, function(){});  
-      })
-    })
+    });
   })
 }
