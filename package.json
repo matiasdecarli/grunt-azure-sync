@@ -1,0 +1,47 @@
+{
+  "name": "grunt-azure-sync",
+  "description": "A grunt task to upload files to Azure. Based on grunt-s3-sync",
+  "version": "0.1.0",
+  "homepage": "https://github.com/matiasdecarli/grunt-azure-sync",
+  "author": {
+    "name": "Matias De Carli",
+    "email": "matiasdecarli@gmail.com",
+    "url": "http://matiasdecarli.com"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/matiasdecarli/grunt-azure-sync.git"
+  },
+  "bugs": {
+    "url": "https://github.com/matiasdecarli/grunt-azure-sync/issues"
+  },
+  "licenses": [
+    {
+      "type": "MIT",
+      "url": "https://github.com/matiasdecarli/grunt-azure-sync/blob/master/LICENSE-MIT"
+    }
+  ],
+  "engines": {
+    "node": ">= 0.8.0"
+  },
+  "scripts": {
+    "test": "grunt test"
+  },
+  "dependencies": {
+    "azure": "^0.9.7",
+    "grunt-env": "^0.4.1",
+    "rimraf": "~2.2.2",
+    "through": "~2.3.4",
+    "async": "~0.2.9",
+    "event-stream": "3.0.16"
+  },
+  "devDependencies": {
+    "grunt": "~0.4.1"
+  },
+  "peerDependencies": {
+    "grunt": "~0.4.5"
+  },
+  "keywords": [
+    "gruntplugin"
+  ]
+}
