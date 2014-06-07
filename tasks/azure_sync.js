@@ -9,7 +9,7 @@
 'use strict';
 
 // External libs.
-var , rimraf = require('rimraf')
+var rimraf = require('rimraf')
     , async = require('async')
     , path = require('path')
     , zlib = require('zlib')
