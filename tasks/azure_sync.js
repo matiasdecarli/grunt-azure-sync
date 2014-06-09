@@ -18,13 +18,20 @@ var rimraf = require('rimraf')
     , fs = require('fs')
 
 module.exports = function(grunt) {
-  grunt.registerMultiTask('azure-sync', 'A streaming interface for upcd loading multiple files to Azure.', function() {
+  grunt.registerMultiTask('azure-sync', 'A interface for uploading multiple files to Azure.', function() {
 	var options = this.options()
       , tmp = path.resolve('.tmp')
       , done = this.async()
       , azure = require('azure')
       , blobService = azure.createBlobService()     
       , self = this;
+
+    if (!options.username){
+      var username = 'username';
+    }
+    else{
+       var username = options.username;
+    }
 
     options.headers = options.headers || {}
     if (options.gzip) {
@@ -41,6 +48,7 @@ module.exports = function(grunt) {
 
     // Handle the upload for each files
     var uploadFile = function(src, orig, dest) { 
+      grunt.log.success('>> [uploaded] ' + 'https://' + username + '.blob.core.windows.net' + dest)  
       blobService.createBlockBlobFromFile(options.container, dest.slice(1,dest.length)
         , src
         , function(error){
@@ -78,11 +86,10 @@ module.exports = function(grunt) {
                   if (err) throw err;                  
                   var hash = crypto.createHash('md5').update(data);
                   if(hashs[hash.digest('base64')] === undefined){
-                      grunt.log.success('>> [uploaded] ' + dest) 
                       uploadFile(absolute, absolute, dest);
                   }
                   else{
-                      grunt.log.ok('[exists] ' + dest)
+                      grunt.log.ok('[exists] ' + 'https://' + username + '.blob.core.windows.net' + dest)
                   }                  
                 });
                 return next()
@@ -109,12 +116,11 @@ module.exports = function(grunt) {
                     if (err) throw err;                  
 
                     var hash = crypto.createHash('md5').update(data);                    
-                    if(hashs[hash.digest('base64')] === undefined){
-                        grunt.log.success('>> [uploaded] ' + dest)                         
+                    if(hashs[hash.digest('base64')] === undefined){                                               
                         uploadFile(outputSrc, absolute, dest)
                     }
                     else{
-                        grunt.log.ok('[exists] ' + dest)
+                        grunt.log.ok('[exists] ' + 'https://' + username + '.blob.core.windows.net' + dest)
                     }       
                     if (itemsRem--==1){
                       done()

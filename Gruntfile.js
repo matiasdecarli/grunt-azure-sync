@@ -7,7 +7,8 @@ module.exports = function(grunt) {
         // Configuration to be run
         'azure-sync': {
             options : {
-                container: 'CONTAINER'              
+                container: 'CONTAINER',
+                username: 'matiasdecarli',           
             }
             , stage: {
                 options: {},
