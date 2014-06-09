@@ -19,20 +19,13 @@ var rimraf = require('rimraf')
 
 module.exports = function(grunt) {
   grunt.registerMultiTask('azure-sync', 'A interface for uploading multiple files to Azure.', function() {
-	var options = this.options()
+  var options = this.options()
       , tmp = path.resolve('.tmp')
       , done = this.async()
       , azure = require('azure')
       , blobService = azure.createBlobService()     
       , self = this;
-
-    if (!options.username){
-      var username = 'username';
-    }
-    else{
-       var username = options.username;
-    }
-
+    
     options.headers = options.headers || {}
     if (options.gzip) {
       options.headers['Content-Encoding'] = 'gzip'
@@ -48,9 +41,9 @@ module.exports = function(grunt) {
 
     // Handle the upload for each files
     var uploadFile = function(src, orig, dest) { 
-      grunt.log.success('>> [uploaded] ' + 'https://' + username + '.blob.core.windows.net' + dest)  
+      grunt.log.success('>> [uploaded] ' + 'https://' + process.env.AZURE_STORAGE_ACCOUNT + '.blob.core.windows.net/' + process.env.AZURE_STORAGE_CONTAINER + dest)  
       blobService.createBlockBlobFromFile(
-          options.container
+          process.env.AZURE_STORAGE_CONTAINER
         , dest.slice(1,dest.length)
         , src
         ,{
@@ -60,14 +53,14 @@ module.exports = function(grunt) {
         , function(error){
            if(error){ 
               console.log('error: ',error)
-            }            
+            }                    
         });    
     }
 
-    blobService.createContainerIfNotExists(options.container, {publicAccessLevel : 'blob'}, function(err) {
+    blobService.createContainerIfNotExists(process.env.AZURE_STORAGE_CONTAINER, {publicAccessLevel : 'blob'}, function(err) {
       if(err) throw err;
 
-      blobService.listBlobs(options.container, function(error, blobs) {
+      blobService.listBlobs(process.env.AZURE_STORAGE_CONTAINER, function(error, blobs) {
           if(error) throw error;
 
           // Upload each file          
@@ -99,7 +92,7 @@ module.exports = function(grunt) {
                       uploadFile(absolute, absolute, dest);
                   }
                   else{
-                      grunt.log.ok('[exists] ' + 'https://' + username + '.blob.core.windows.net' + dest)
+                      grunt.log.ok('[exists] ' + 'https://' + process.env.AZURE_STORAGE_ACCOUNT + '.blob.core.windows.net/' + process.env.AZURE_STORAGE_CONTAINER + dest)
                   }                  
                 });
                 return next()
@@ -130,7 +123,7 @@ module.exports = function(grunt) {
                         uploadFile(outputSrc, absolute, dest)
                     }
                     else{
-                        grunt.log.ok('[exists] ' + 'https://' + username + '.blob.core.windows.net' + dest)
+                        grunt.log.ok('[exists] ' + 'https://' + process.env.AZURE_STORAGE_ACCOUNT + '.blob.core.windows.net/' + process.env.AZURE_STORAGE_CONTAINER + dest)
                     }       
                     if (itemsRem--==1){
                       done()
@@ -140,7 +133,7 @@ module.exports = function(grunt) {
                 }) 
             }, function(err) {                
               if (err) throw err      
-              rimraf(tmp, function(){});  
+              rimraf(tmp, function(){}); 
             })
           })
       });
