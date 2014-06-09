@@ -49,8 +49,14 @@ module.exports = function(grunt) {
     // Handle the upload for each files
     var uploadFile = function(src, orig, dest) { 
       grunt.log.success('>> [uploaded] ' + 'https://' + username + '.blob.core.windows.net' + dest)  
-      blobService.createBlockBlobFromFile(options.container, dest.slice(1,dest.length)
+      blobService.createBlockBlobFromFile(
+          options.container
+        , dest.slice(1,dest.length)
         , src
+        ,{
+          setBlobContentMD5: true,
+          cacheControlHeader: options.cachecontrol,
+        }
         , function(error){
            if(error){ 
               console.log('error: ',error)
@@ -58,8 +64,12 @@ module.exports = function(grunt) {
         });    
     }
 
-    blobService.listBlobs(options.container, function(error, blobs){
-        if(!error){          
+    blobService.createContainerIfNotExists(options.container, {publicAccessLevel : 'blob'}, function(err) {
+      if(err) throw err;
+
+      blobService.listBlobs(options.container, function(error, blobs) {
+          if(error) throw error;
+
           // Upload each file          
           var hashs = [];
           blobs.forEach(function(item){
@@ -133,7 +143,7 @@ module.exports = function(grunt) {
               rimraf(tmp, function(){});  
             })
           })
-        }
+      });
     });
   })
 }
