@@ -76,7 +76,7 @@ module.exports = function(grunt) {
 
             var itemsRem = list.length;
 
-            async.mapLimit(list, 18, function(src, next) {        
+            async.mapLimit(list, 25, function(src, next) {        
               var absolute = path.resolve(src)
               var dest = url.resolve(file.dest, path.relative(file.root, src))
               var useGzip = 'gzip' in file ? !!file.gzip : !!options.gzip
@@ -118,9 +118,10 @@ module.exports = function(grunt) {
                 .once('close', function() {
                   fs.readFile(outputSrc, function (err, data) {
                     if (err) throw err;                  
-
-                    var hash = crypto.createHash('md5').update(data);                    
-                    if(hashs[hash.digest('base64')] === undefined){                                               
+                    
+                    var hash = crypto.createHash('md5').update(data);
+                    var exists = hashs[hash.digest('base64')];                 
+                    if((exists === undefined) || (exists != dest.slice(1,dest.length))){
                         uploadFile(outputSrc, absolute, dest)
                     }
                     else{
