@@ -76,7 +76,7 @@ module.exports = function(grunt) {
 
             var itemsRem = list.length;
 
-            async.mapLimit(list, 25, function(src, next) {        
+            async.mapLimit(list, 18, function(src, next) {        
               var absolute = path.resolve(src)
               var dest = url.resolve(file.dest, path.relative(file.root, src))
               var useGzip = 'gzip' in file ? !!file.gzip : !!options.gzip
