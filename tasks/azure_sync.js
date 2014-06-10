@@ -88,7 +88,8 @@ module.exports = function(grunt) {
                 fs.readFile(absolute, function (err, data) {
                   if (err) throw err;                  
                   var hash = crypto.createHash('md5').update(data);
-                  if(hashs[hash.digest('base64')] === undefined){
+                  var exists = hashs[hash.digest('base64')];
+                  if((exists === undefined) || (exists != dest.slice(1,dest.length))){
                       uploadFile(absolute, absolute, dest);
                   }
                   else{
