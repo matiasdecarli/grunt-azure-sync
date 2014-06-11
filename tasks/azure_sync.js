@@ -16,6 +16,7 @@ var rimraf = require('rimraf')
     , url = require('url')
     , crypto = require('crypto')
     , fs = require('fs')
+    , mime = require('mime')
 
 module.exports = function(grunt) {
   grunt.registerMultiTask('azure-sync', 'A interface for uploading multiple files to Azure.', function() {
@@ -25,20 +26,11 @@ module.exports = function(grunt) {
       , azure = require('azure')
       , blobService = azure.createBlobService()     
       , self = this;
-    
-    if (options.gzip) {
-      var params = {
-          setBlobContentMD5: true,
-          cacheControlHeader: options.cachecontrol,
-          contentEncodingHeader: 'gzip'
-        };
-    }
-    else{
-        var params = {
-          setBlobContentMD5: true,
-          cacheControlHeader: options.cachecontrol,
-        };
-    }
+
+    var params = {
+      setBlobContentMD5: true,
+      cacheControlHeader: options.cachecontrol
+    };
 
     var actualFiles = this.files.map(function(set) {
       return set.src.filter(function(file) {
@@ -51,6 +43,15 @@ module.exports = function(grunt) {
     // Handle the upload for each files
     var uploadFile = function(src, orig, dest) { 
       grunt.log.success('>> [uploaded] ' + 'https://' + process.env.AZURE_STORAGE_ACCOUNT + '.blob.core.windows.net/' + process.env.AZURE_STORAGE_CONTAINER + dest)  
+
+      if (options.gzip==true) {
+          params.contentEncodingHeader = 'gzip'
+
+      }
+      else{
+          params.contentEncodingHeader= mime.lookup(src)
+      }
+
       blobService.createBlockBlobFromFile(
           process.env.AZURE_STORAGE_CONTAINER
         , dest.slice(1,dest.length)
