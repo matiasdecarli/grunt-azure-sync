@@ -26,9 +26,18 @@ module.exports = function(grunt) {
       , blobService = azure.createBlobService()     
       , self = this;
     
-    options.headers = options.headers || {}
     if (options.gzip) {
-      options.headers['Content-Encoding'] = 'gzip'
+      var params = {
+          setBlobContentMD5: true,
+          cacheControlHeader: options.cachecontrol,
+          contentEncodingHeader: 'gzip'
+        };
+    }
+    else{
+        var params = {
+          setBlobContentMD5: true,
+          cacheControlHeader: options.cachecontrol,
+        };
     }
 
     var actualFiles = this.files.map(function(set) {
@@ -46,10 +55,7 @@ module.exports = function(grunt) {
           process.env.AZURE_STORAGE_CONTAINER
         , dest.slice(1,dest.length)
         , src
-        ,{
-          setBlobContentMD5: true,
-          cacheControlHeader: options.cachecontrol,
-        }
+        , params
         , function(error){
            if(error){ 
               console.log('error: ',error)
