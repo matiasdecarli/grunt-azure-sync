@@ -25,12 +25,7 @@ module.exports = function(grunt) {
       , done = this.async()
       , azure = require('azure')
       , blobService = azure.createBlobService()     
-      , self = this;
-
-    var params = {
-      setBlobContentMD5: true,
-      cacheControlHeader: options.cachecontrol
-    };
+      , self = this;    
 
     var actualFiles = this.files.map(function(set) {
       return set.src.filter(function(file) {
@@ -42,14 +37,18 @@ module.exports = function(grunt) {
 
     // Handle the upload for each files
     var uploadFile = function(src, orig, dest) { 
-      grunt.log.success('>> [uploaded] ' + 'https://' + process.env.AZURE_STORAGE_ACCOUNT + '.blob.core.windows.net/' + process.env.AZURE_STORAGE_CONTAINER + dest)  
+      var params = {
+            setBlobContentMD5: true,
+            cacheControlHeader: options.cachecontrol
+      }
 
-      if (options.gzip==true) {
-          params.contentEncodingHeader = 'gzip'
-
+      if (options.gzip) {
+        params.contentEncodingHeader='gzip'   
+        var mim = 'gzip';              
       }
       else{
-          params.contentEncodingHeader= mime.lookup(src)
+        params.contentEncodingHeader=mime.lookup(src)
+        var mim = mime.lookup(src);
       }
 
       blobService.createBlockBlobFromFile(
@@ -60,7 +59,10 @@ module.exports = function(grunt) {
         , function(error){
            if(error){ 
               console.log('error: ',error)
-            }                    
+            }
+            else{
+              grunt.log.success('>> [uploaded][' + mim + '] ' + 'https://' + process.env.AZURE_STORAGE_ACCOUNT + '.blob.core.windows.net/' + process.env.AZURE_STORAGE_CONTAINER + dest)  
+            }                  
         });    
     }
 
