@@ -1,7 +1,7 @@
 {
   "name": "grunt-azure-sync",
   "description": "A grunt task to upload files to Azure. Based on grunt-s3-sync",
-  "version": "0.1.15",
+  "version": "0.1.22",
   "homepage": "https://github.com/matiasdecarli/grunt-azure-sync",
   "author": {
     "name": "Matias De Carli",
@@ -35,7 +35,8 @@
     "grunt-env": "^0.4.1",
     "mime": "^1.2.11",
     "rimraf": "~2.2.2",
-    "through": "~2.3.4"
+    "through": "~2.3.4",
+    "tmp": "0.0.23"
   },
   "devDependencies": {
     "grunt": ">=0.4.1"
