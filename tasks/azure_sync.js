@@ -10,144 +10,175 @@
 
 // External libs.
 var rimraf = require('rimraf')
-    , async = require('async')
-    , path = require('path')
-    , zlib = require('zlib')
-    , url = require('url')
-    , crypto = require('crypto')
-    , fs = require('fs')
-    , mime = require('mime')
+	, async = require('async')
+	, path = require('path')
+	, zlib = require('zlib')
+	, url = require('url')
+	, crypto = require('crypto')
+	, fs = require('fs')
+	, mime = require('mime')
+	, azure = require('azure')
 
 module.exports = function(grunt) {
-  grunt.registerMultiTask('azure-sync', 'A interface for uploading multiple files to Azure.', function() {
-  var options = this.options()
-      , tmp = path.resolve('.tmp')
-      , done = this.async()
-      , azure = require('azure')
-      , blobService = azure.createBlobService()     
-      , self = this;    
+	grunt.registerMultiTask('azure-sync', 'A interface for uploading multiple files to Azure.', function() {	  	
+		var done = this.async();
+		var self = this;
+		var options = this.options();
+        var tmp = path.resolve('.tmp')
 
-    var actualFiles = this.files.map(function(set) {
-      return set.src.filter(function(file) {
-        return grunt.file.isFile(file)
-      })
-    }).reduce(function(a, b) {
-      return a.concat(b)
-    }, [])
+		async.waterfall([
+			//create container if not exists
+			function(callback) {					
+				ensureContainer(process.env.AZURE_STORAGE_CONTAINER, callback);								
+			},
+			//retrieve all blobs
+			function(result,response,callback) {		
+				if (result) 
+					console.log('Container: ' + process.env.AZURE_STORAGE_CONTAINER +' was created');
+				
+				listBlobsFromContainer(process.env.AZURE_STORAGE_CONTAINER, callback);
+			},
+			//process md5
+			function(blobs,result,response,callback) {						
+				processMd5(blobs, callback);
+			},
+			//compare and upload files
+			function(hashList, callback) {	
 
-    // Handle the upload for each files
-    var uploadFile = function(src, orig, dest) { 
-      var params = {
-            setBlobContentMD5: true,
-            cacheControlHeader: options.cachecontrol
-      }
+				var actualFiles = self.files.map(function(set) {
+			      return set.src.filter(function(file) {
+			        return grunt.file.isFile(file)
+			      })
+			    }).reduce(function(a, b) {
+			      return a.concat(b)
+			    }, []);
 
-      if (options.gzip) {
-        params.contentEncodingHeader='gzip'   
-        var mim = 'gzip';              
-      }
-      else{
-        params.contentEncodingHeader=mime.lookup(src)
-        var mim = mime.lookup(src);
-      }
+				self.files.forEach(function(file) { 
+		            
+		            var list = file.src.filter(function(file) {
+		              return actualFiles.indexOf(file) !== -1
+		            })
+      			
+					async.eachLimit(list, 25, function(src,next){
+						
+						var absolute = path.resolve(src);
+						var dest = url.resolve(file.dest, path.relative(file.root, src))
 
-      blobService.createBlockBlobFromFile(
-          process.env.AZURE_STORAGE_CONTAINER
-        , dest.slice(1,dest.length)
-        , src
-        , params
-        , function(error){
-           if(error){ 
-              console.log('error: ',error)
-            }
-            else{
-              grunt.log.success('>> [uploaded][' + mim + '] ' + 'https://' + process.env.AZURE_STORAGE_ACCOUNT + '.blob.core.windows.net/' + process.env.AZURE_STORAGE_CONTAINER + dest)  
-            }                  
-        });    
-    }
+						if (options.gzip){						
+							 var outputSrc = path.resolve(tmp, src)
 
-    blobService.createContainerIfNotExists(process.env.AZURE_STORAGE_CONTAINER, {publicAccessLevel : 'blob'}, function(err) {
-      if(err) throw err;
+				             grunt.file.mkdir(path.dirname(outputSrc))
 
-      blobService.listBlobs(process.env.AZURE_STORAGE_CONTAINER, function(error, blobs) {
-          if(error) throw error;
+				             var gzipCompLevel = 'compressionLevel' in file
+				                ? file.compressionLevel
+				                : options.compressionLevel
 
-          // Upload each file          
-          var hashs = [];
-          blobs.forEach(function(item){
-              hashs[item.properties['content-md5']] = item.name;
-          });          
+				             if(typeof gzipCompLevel === 'undefined') {
+				               gzipCompLevel = 9
+				             }
 
-          self.files.forEach(function(file) {  
-            var list = file.src.filter(function(file) {
-              return actualFiles.indexOf(file) !== -1
-            })
+				             var gzip = zlib.createGzip({ level: gzipCompLevel })
+				               , input = fs.createReadStream(absolute)
+				               , output = fs.createWriteStream(outputSrc)               
 
-            var itemsRem = list.length;
+				              input
+				                .pipe(gzip)
+				                .pipe(output)
+				                .once('close', function() {
+									var target = outputSrc;
 
-            async.mapLimit(list, 25, function(src, next) {        
-              var absolute = path.resolve(src)
-              var dest = url.resolve(file.dest, path.relative(file.root, src))
-              var useGzip = 'gzip' in file ? !!file.gzip : !!options.gzip
-              var gzipCompLevel = 'compressionLevel' in file
-                ? file.compressionLevel
-                : options.compressionLevel
+									fs.readFile(target, function (err, data) {
+				           		   		var hash = crypto.createHash('md5').update(data);
+					                    var exists = hashList[hash.digest('base64')];
+					                    if((exists === undefined) || (exists != dest.slice(1,dest.length))){
+					                       uploadFile(options.gzip, absolute, dest, target, options.cachecontrol, callback);
+					                    }
+					                    else{
+					                       console.log('[exists] ' + 'https://' + process.env.AZURE_STORAGE_ACCOUNT + '.blob.core.windows.net/' + process.env.AZURE_STORAGE_CONTAINER + dest)
+					                    }                  
+					                    next;	
+				           		    });  
+								});
+						}	
+						else{									
+							var target = absolute;			
 
-              if (!useGzip) {                
-                fs.readFile(absolute, function (err, data) {
-                  if (err) throw err;                  
-                  var hash = crypto.createHash('md5').update(data);
-                  var exists = hashs[hash.digest('base64')];
-                  if((exists === undefined) || (exists != dest.slice(1,dest.length))){
-                      uploadFile(absolute, absolute, dest);
-                  }
-                  else{
-                      grunt.log.ok('[exists] ' + 'https://' + process.env.AZURE_STORAGE_ACCOUNT + '.blob.core.windows.net/' + process.env.AZURE_STORAGE_CONTAINER + dest)
-                  }                  
-                });
-                return next()
-              }
+							fs.readFile(absolute, function (err, data) {
+		           		   		var hash = crypto.createHash('md5').update(data);
+			                    var exists = hashList[hash.digest('base64')];
+			                    if((exists === undefined) || (exists != dest.slice(1,dest.length))){
+			                       uploadFile(options.gzip, absolute, dest, src, options.cachecontrol, callback);
+			                    }
+			                    else{
+			                       console.log('[exists] ' + 'https://' + process.env.AZURE_STORAGE_ACCOUNT + '.blob.core.windows.net/' + process.env.AZURE_STORAGE_CONTAINER + dest)
+			                    }                  
+			                    next;	
+		           		    });  
+					}
 
-              // GZip the file
-              var outputSrc = path.resolve(tmp, src)
+					});		
+				},callback);
+			},
+		], done);
+	});
+}
 
-              grunt.file.mkdir(path.dirname(outputSrc))
+// function getContentForUpload(path, gzip, callback) { process.env.AZURE_STORAGE_CONTAINER
+// 	if(gzip) {
+// 		return camino del gzip
+// 	}
 
-              if(typeof gzipCompLevel === 'undefined') {
-                gzipCompLevel = 9
-              }
+// 	// retun el camino del no gzip
+// }
 
-              var gzip = zlib.createGzip({ level: gzipCompLevel })
-                , input = fs.createReadStream(absolute)
-                , output = fs.createWriteStream(outputSrc)
+function actualFiles(){
 
-              input
-                .pipe(gzip)
-                .pipe(output)
-                .once('close', function() {
-                  fs.readFile(outputSrc, function (err, data) {
-                    if (err) throw err;                  
-                    
-                    var hash = crypto.createHash('md5').update(data);
-                    var exists = hashs[hash.digest('base64')];                 
-                    if((exists === undefined) || (exists != dest.slice(1,dest.length))){
-                        uploadFile(outputSrc, absolute, dest)
-                    }
-                    else{
-                        grunt.log.ok('[exists] ' + 'https://' + process.env.AZURE_STORAGE_ACCOUNT + '.blob.core.windows.net/' + process.env.AZURE_STORAGE_CONTAINER + dest)
-                    }       
-                    if (itemsRem--==1){
-                      done()
-                    }
-                    next()             
-                  });                                            
-                }) 
-            }, function(err) {                
-              if (err) throw err      
-              rimraf(tmp, function(){}); 
-            })
-          })
-      });
-    });
-  })
+}
+
+function processMd5(blobs,callback){
+	var hashs = [];	
+    blobs.forEach(function(item){
+        hashs[item.properties['content-md5']] = item.name;
+    });        
+    return callback(null,hashs);
+}
+
+function ensureContainer(containerName, callback) {	
+    return azure.createBlobService().createContainerIfNotExists(containerName, {publicAccessLevel : 'blob'}, callback);	    
+}
+
+function listBlobsFromContainer(containerName, callback) {		
+    return azure.createBlobService().listBlobs(containerName, callback);        
+}
+
+function uploadFile(gzip, fileName, dest, src ,cacheControl, callback) {
+	var params = {
+        setBlobContentMD5: true,
+        cacheControlHeader: cacheControl
+ 	}
+
+  	if (gzip) {
+    	var mim = 'gzip';     	
+    	params.contentEncodingHeader=mim  
+  	}
+  	else{
+    	var mim = mime.lookup(src);
+    	params.contentEncodingHeader=mim        
+  	}
+
+	azure.createBlobService().createBlockBlobFromFile(
+	      process.env.AZURE_STORAGE_CONTAINER
+	    , dest.slice(1,dest.length)
+	    , src
+	    , params
+	    , function(error){
+	       if(error){ 
+	          console.log('error: ',error)
+	        }
+	        else{
+	          console.log('>> [uploaded][' + mim + '] ' + 'https://' + process.env.AZURE_STORAGE_ACCOUNT + '.blob.core.windows.net/' + process.env.AZURE_STORAGE_CONTAINER + dest)  
+	        }                  
+	    }); 
+
+	return callback;   	
 }
