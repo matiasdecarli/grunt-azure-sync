@@ -55,7 +55,8 @@ module.exports = function(grunt) {
 						},
 						// check file exists
 						function(gzipFilePath, nextFile) {
-							exists(hashList, file, gzipFilePath, nextFile);
+							var removePath = self.options().removeFirstPath;
+							exists(removePath, hashList, file, gzipFilePath, nextFile);
 						},
 						// upload file when it doesn't exist
 						function(gzipFile, fileExists, nextFile) {
@@ -63,8 +64,10 @@ module.exports = function(grunt) {
 
 							var path = gzipFile || file;
 							var gzip = self.options().gzip;
-							var cacheControl = self.options().cacheControl;							
-							uploadFile(file, path, gzip, cacheControl, nextFile);
+							var cacheControl = self.options().cacheControl;		
+							var removePath = self.options().removeFirstPath;
+					
+							uploadFile(removePath, file, path, gzip, cacheControl, nextFile);
 						}, 
 						function(uploaded, nextFile) {
 							var blobUrl = 'https://' + process.env.AZURE_STORAGE_ACCOUNT + '.blob.core.windows.net/' + process.env.AZURE_STORAGE_CONTAINER + file.substring(file.indexOf("/"),file.length);
@@ -96,8 +99,11 @@ module.exports = function(grunt) {
 		});
 	}
 
-	function exists(files, file, gzipPath, callback) { 
-		if(!files[file.substring(file.indexOf("/")+1,file.length)]) return callback(null, gzipPath, false);
+	function exists(removePath, files, file, gzipPath, callback) { 
+		if (removePath){
+			file = file.substring(file.indexOf("/")+1,file.length);
+		}
+		if(!files[file]) return callback(null, gzipPath, false);
 
 		callback(null, gzipPath, true);
 	}
@@ -128,7 +134,7 @@ module.exports = function(grunt) {
 	    return azure.createBlobService().listBlobs(containerName, callback);        
 	}
 
-	function uploadFile(name, path, gzip, cacheControl, callback) {
+	function uploadFile(removePath, name, path, gzip, cacheControl, callback) {
 		var params = { setBlobContentMD5: true, cacheControlHeader: cacheControl };		
 
 		if(gzip) {
@@ -136,10 +142,14 @@ module.exports = function(grunt) {
 			grunt.util._.extend(params, { contentType: mime.lookup(name) });
 		}
 
+		if (removePath){
+			name = name.substring(name.indexOf("/")+1,name.length)
+		}
+
 		var container = process.env.AZURE_STORAGE_CONTAINER;
 		var service = azure.createBlobService(); 	
 
-		service.createBlockBlobFromFile(container, name.substring(name.indexOf("/")+1,name.length), path, params, function(err) {
+		service.createBlockBlobFromFile(container, name, path, params, function(err) {
 			callback(null, true);
 		});   	
 	}
