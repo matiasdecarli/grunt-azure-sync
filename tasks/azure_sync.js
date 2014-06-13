@@ -9,11 +9,8 @@
 'use strict';
 
 // External libs.
-var rimraf = require('rimraf'), 
-	async = require('async'), 
-	path = require('path'), 
+var async = require('async'), 
 	zlib = require('zlib'), 
-	url = require('url'), 
 	crypto = require('crypto'), 
 	fs = require('fs'), 
 	azure = require('azure'),
@@ -135,15 +132,14 @@ module.exports = function(grunt) {
 	}
 
 	function uploadFile(removePath, name, path, gzip, cacheControl, callback) {
-		var params = { setBlobContentMD5: true, cacheControlHeader: cacheControl };		
+		var params = { setBlobContentMD5: true, cacheControlHeader: cacheControl, contentType: mime.lookup(name) };
 
 		if(gzip) {
-			grunt.util._.extend(params, { contentEncodingHeader: 'gzip' });
-			grunt.util._.extend(params, { contentType: mime.lookup(name) });
+			grunt.util._.extend(params, { contentEncodingHeader: 'gzip' });			
 		}
 
 		if (removePath){
-			name = name.substring(name.indexOf("/")+1,name.length)
+			name = name.substring(name.indexOf("/")+1,name.length);
 		}
 
 		var container = process.env.AZURE_STORAGE_CONTAINER;
