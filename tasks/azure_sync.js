@@ -37,7 +37,7 @@ module.exports = function(grunt) {
 			},
 			//process md5
 			function(blobs,result,response,callback) {						
-				processMd5(blobs, callback);
+				buildHashTable(blobs, callback);
 			},
 			//compare and upload files
 			function(hashList, allDone) {
@@ -85,6 +85,14 @@ module.exports = function(grunt) {
 		], done);
 	});
 
+	function ensureContainer(containerName, callback) {	
+	    return azure.createBlobService().createContainerIfNotExists(containerName, {publicAccessLevel : 'blob'}, callback);	    
+	}
+
+	function listBlobsFromContainer(containerName, callback) {		
+	    return azure.createBlobService().listBlobs(containerName, callback);        
+	}
+
 	function generateGzipVersion(file, callback) {
 		tmp.file(function(err, path) {
 			if(err) return callback(err);
@@ -98,34 +106,7 @@ module.exports = function(grunt) {
 		});
 	}
 
-	function exists(removePath, files, file, gzipPath, callback) { 
-		if (removePath){
-			file = file.substring(file.indexOf("/")+1,file.length);
-		}
-		if(!files[file]) return callback(null, gzipPath, false);
-
-		fs.readFile(gzipPath, function (err, data) {
-           if (err) throw err;                  
-           var hash = crypto.createHash('md5').update(data);      
-           //console.log(files[file], hash.digest('base64'));
-           if(files[file] != hash.digest('base64')){
-               callback(null, gzipPath, false);
-           }
-           else{
-          	callback(null, gzipPath, true);
-           }
-      	});		
-	}
-
-	function getContent(file, gzip, callback) {
-		var content = grunt.file.read(file);
-
-		if(!gzip) return callback(null, content);
-
-		zlib.gzip(content, callback);		
-	}
-
-	function processMd5(blobs,callback) {
+	function buildHashTable(blobs,callback) {
 		var hashs = {};	
 	    
 	    blobs.forEach(function(item) {
@@ -135,12 +116,20 @@ module.exports = function(grunt) {
 	    return callback(null,hashs);
 	}
 
-	function ensureContainer(containerName, callback) {	
-	    return azure.createBlobService().createContainerIfNotExists(containerName, {publicAccessLevel : 'blob'}, callback);	    
-	}
+	function exists(removePath, files, file, gzipPath, callback) { 
+		if (removePath) {
+			var orgiginalPath = file;
+			file = file.substring(file.indexOf("/")+1,file.length);
+		}
 
-	function listBlobsFromContainer(containerName, callback) {		
-	    return azure.createBlobService().listBlobs(containerName, callback);        
+		if(!files[file]) return callback(null, gzipPath, false);
+
+		fs.readFile(gzipPath || orgiginalPath, function(err, data) {			
+			if(err) return callback(err);
+
+			var hash = crypto.createHash('md5').update(data);
+			callback(null, gzipPath, files[file] == hash.digest('base64'));
+		});	
 	}
 
 	function uploadFile(removePath, name, path, gzip, cacheControl, callback) {

@@ -7,9 +7,9 @@ module.exports = function(grunt) {
         // Configuration to be run
         'azure-sync': {
             options : {
-                container: 'CONTAINER',
-                username: 'matiasdecarli',           
-            }
+                cacheControl: 'public, max-age=31556926',
+                force: false
+            },        
             , stage: {
                 options: {},
                 files: [
