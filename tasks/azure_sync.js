@@ -52,6 +52,8 @@ module.exports = function(grunt) {
 						},
 						// check file exists
 						function(gzipFilePath, nextFile) {
+							if(options.force) return nextFile(null, gzipFilePath, false);
+
 							var removePath = self.options().removeFirstPath;
 							exists(removePath, hashList, file, gzipFilePath, nextFile);
 						},
@@ -61,7 +63,7 @@ module.exports = function(grunt) {
 
 							var path = gzipFile || file;
 							var gzip = self.options().gzip;
-							var cacheControl = self.options().cacheControl;		
+							var cacheControl = self.options().cacheControl;								
 							var removePath = self.options().removeFirstPath;
 					
 							uploadFile(removePath, file, path, gzip, cacheControl, nextFile);
@@ -102,7 +104,17 @@ module.exports = function(grunt) {
 		}
 		if(!files[file]) return callback(null, gzipPath, false);
 
-		callback(null, gzipPath, true);
+		fs.readFile(gzipPath, function (err, data) {
+           if (err) throw err;                  
+           var hash = crypto.createHash('md5').update(data);      
+           //console.log(files[file], hash.digest('base64'));
+           if(files[file] != hash.digest('base64')){
+               callback(null, gzipPath, false);
+           }
+           else{
+          	callback(null, gzipPath, true);
+           }
+      	});		
 	}
 
 	function getContent(file, gzip, callback) {
@@ -133,10 +145,9 @@ module.exports = function(grunt) {
 
 	function uploadFile(removePath, name, path, gzip, cacheControl, callback) {
 		var params = { setBlobContentMD5: true, cacheControlHeader: cacheControl, contentType: mime.lookup(name) };
-
 		if(gzip) {
 			grunt.util._.extend(params, { contentEncodingHeader: 'gzip' });			
-		}
+		}		
 
 		if (removePath){
 			name = name.substring(name.indexOf("/")+1,name.length);
