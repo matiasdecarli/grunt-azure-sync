@@ -45,6 +45,9 @@
     "grunt": ">=0.4.1"
   },
   "keywords": [
-    "gruntplugin"
+    "gruntplugin",
+    "azure",
+    "grunt",
+    "sync"
   ]
 }
