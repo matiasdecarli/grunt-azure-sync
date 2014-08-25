@@ -8,32 +8,18 @@ module.exports = function(grunt) {
         'azure-sync': {
             options : {
                 cacheControl: 'public, max-age=31556926',
-                force: false
-            },        
-            , stage: {
-                options: {},
-                files: [
-                    {
-                        src:  'tasks/**/*.js'
-                      , dest: 'js/'
-                      , gzip: true
-                    },
-                    {
-                        src:  'Gruntfile.js'
-                      , dest: 'Gruntfile.js'
-                    },
-                    {
-                        src 'foo/**/*.css'
-                        dest: 'css/'
-                        gzip: true
-                        compressionLevel: 9
-                    },
-                    {
-                        src:  'foo/bar'
-                      , dest: 'none'
-                    }
-                ]
-            }
+                force: false,
+                container: 'container',
+                storage: 'storage'
+            },                   
+            files: [{
+                src: [                    
+                    'README.md'                    
+                ],
+                dest: '/',
+                expand: true,
+                filter: 'isFile',
+            }]
         }
     })
 
@@ -41,6 +27,6 @@ module.exports = function(grunt) {
     grunt.loadTasks('tasks')
 
     // plugin's task(s), then test the result.
-    grunt.registerTask('default', ['azure-sync:stage'])
+    grunt.registerTask('default', ['azure-sync'])
 
 };

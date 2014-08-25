@@ -23,17 +23,20 @@ module.exports = function(grunt) {
 		var self = this;
 		var options = this.options();
 
+		var container = (options.container)? options.container : process.env.AZURE_STORAGE_CONTAINER;
+		var storage = process.env.AZURE_STORAGE_ACCOUNT;
+
 		async.waterfall([
 			//create container if not exists
 			function(callback) {					
-				ensureContainer(process.env.AZURE_STORAGE_CONTAINER, callback);								
+				ensureContainer(container, callback);								
 			},
 			//retrieve all blobs
 			function(result,response,callback) {		
 				if (result) 
-					console.log('Container: ' + process.env.AZURE_STORAGE_CONTAINER +' was created');
+					console.log('Container: ' + container +' was created');
 				
-				listBlobsFromContainer(process.env.AZURE_STORAGE_CONTAINER, callback);
+				listBlobsFromContainer(container, callback);
 			},
 			//process md5
 			function(blobs,result,response,callback) {						
@@ -66,10 +69,10 @@ module.exports = function(grunt) {
 							var cacheControl = self.options().cacheControl;								
 							var removePath = self.options().removeFirstPath;
 					
-							uploadFile(removePath, file, path, gzip, cacheControl, nextFile);
+							uploadFile(container, removePath, file, path, gzip, cacheControl, nextFile);
 						}, 
 						function(uploaded, nextFile) {
-							var blobUrl = 'https://' + process.env.AZURE_STORAGE_ACCOUNT + '.blob.core.windows.net/' + process.env.AZURE_STORAGE_CONTAINER + file.substring(file.indexOf("/"),file.length);
+							var blobUrl = 'https://' + storage + '.blob.core.windows.net/' + container + '/' + file.substring(file.indexOf("/"),file.length);
 
 							if(uploaded) {
 								grunt.log.ok('[uploaded] ' + blobUrl); 
@@ -132,7 +135,7 @@ module.exports = function(grunt) {
 		});	
 	}
 
-	function uploadFile(removePath, name, path, gzip, cacheControl, callback) {
+	function uploadFile(container, removePath, name, path, gzip, cacheControl, callback) {
 		var params = { setBlobContentMD5: true, cacheControlHeader: cacheControl, contentType: mime.lookup(name) };
 		if(gzip) {
 			grunt.util._.extend(params, { contentEncodingHeader: 'gzip' });			
@@ -142,7 +145,6 @@ module.exports = function(grunt) {
 			name = name.substring(name.indexOf("/")+1,name.length);
 		}
 
-		var container = process.env.AZURE_STORAGE_CONTAINER;
 		var service = azure.createBlobService(); 	
 
 		service.createBlockBlobFromFile(container, name, path, params, function(err) {
