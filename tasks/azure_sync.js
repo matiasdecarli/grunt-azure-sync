@@ -72,7 +72,7 @@ module.exports = function(grunt) {
 							uploadFile(container, removePath, file, path, gzip, cacheControl, nextFile);
 						}, 
 						function(uploaded, nextFile) {
-							var blobUrl = 'https://' + storage + '.blob.core.windows.net/' + container + '/' + file.substring(file.indexOf("/"),file.length);
+							var blobUrl = 'https://' + storage + '.blob.core.windows.net/' + container + file.substring(file.indexOf("/"),file.length);
 
 							if(uploaded) {
 								grunt.log.ok('[uploaded] ' + blobUrl); 
