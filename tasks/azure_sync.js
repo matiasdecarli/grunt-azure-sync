@@ -24,7 +24,7 @@ module.exports = function(grunt) {
 		var options = this.options();
 
 		var container = (options.container)? options.container : process.env.AZURE_STORAGE_CONTAINER;
-		var storage = process.env.AZURE_STORAGE_ACCOUNT;
+		var storage = (options.storage)? options.storage : process.env.AZURE_STORAGE_ACCOUNT;
 
 		async.waterfall([
 			//create container if not exists
