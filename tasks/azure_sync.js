@@ -1,8 +1,8 @@
 /*
- * grunt-contrib-uglify
+ * grunt-azure-sync
  * https://gruntjs.com/
  *
- * Copyright (c) 2013 Small Multiples
+ * Copyright (c) 2014 Matias De Carli
  * Licensed under the MIT license.
  */
 
