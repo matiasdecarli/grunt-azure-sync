@@ -46,14 +46,14 @@ module.exports = function(grunt) {
 			function(hashList, allDone) {
 				async.each(self.filesSrc, function(file, next) {
 					async.waterfall([
-						// get the right file name
+						// do we need to gzip it?
 						function(nextFile) {
 							if(!self.options().gzip)
 								return nextFile(null, null);
 
 							generateGzipVersion(file, nextFile);
 						},
-						// check file exists
+						// check if file exists
 						function(gzipFilePath, nextFile) {
 							if(options.force) return nextFile(null, gzipFilePath, false);
 
@@ -72,7 +72,7 @@ module.exports = function(grunt) {
 							uploadFile(container, removePath, file, path, gzip, cacheControl, nextFile);
 						}, 
 						function(uploaded, nextFile) {
-							var blobUrl = 'https://' + storage + '.blob.core.windows.net/' + container + file.substring(file.indexOf("/"),file.length);
+							var blobUrl = 'https://' + storage + '.blob.core.windows.net/' + container + '/' + file.substring(file.indexOf("/"),file.length);
 
 							if(uploaded) {
 								grunt.log.ok('[uploaded] ' + blobUrl); 
@@ -120,8 +120,9 @@ module.exports = function(grunt) {
 	}
 
 	function exists(removePath, files, file, gzipPath, callback) { 
+		var orgiginalPath = file;
+
 		if (removePath) {
-			var orgiginalPath = file;
 			file = file.substring(file.indexOf("/")+1,file.length);
 		}
 
